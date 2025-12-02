@@ -5,7 +5,7 @@ import json
 HOST = '127.0.0.1'
 PORT = 65432
 
-rooms = []  # Lista de salas de jogo
+rooms = []
 room_lock = threading.Lock()
 
 class GameRoom:
@@ -15,6 +15,7 @@ class GameRoom:
         self.boards = {}
         self.turn = 0
         self.game_started = False
+        self.active_players = [True, True]  # rastreia se cada jogador está ativo
         
     def is_full(self):
         return len(self.clients) >= 2
@@ -23,10 +24,24 @@ class GameRoom:
         player_id = len(self.clients)
         self.clients.append(conn)
         return player_id
+    
+    def disconnect_player(self, player_id):
+        """Marca jogador como desconectado e notifica o outro"""
+        self.active_players[player_id] = False
+        other_id = 1 - player_id
+        
+        # notifica o outro jogador sobre a desconexão
+        if other_id < len(self.clients) and self.active_players[other_id]:
+            try:
+                self.clients[other_id].sendall((json.dumps({
+                    "type": "opponent_disconnected",
+                    "message": "Seu oponente desconectou. Você venceu por W.O.!"
+                }) + "\n").encode())
+            except:
+                pass
 
 def create_board():
-    # Cria um tabuleiro 5x5 vazio
-    return [['~' for _ in range(5)] for _ in range(5)]
+    return [['~' for _ in range(10)] for _ in range(10)]
 
 def get_available_room():
     """Encontra uma sala disponível ou cria uma nova"""
@@ -35,7 +50,6 @@ def get_available_room():
             if not room.is_full():
                 return room
         
-        # Cria nova sala
         new_room = GameRoom(len(rooms))
         rooms.append(new_room)
         return new_room
@@ -45,17 +59,21 @@ def handle_client(conn, addr, room, player_id):
         conn.sendall((json.dumps({"type": "info", "message": f"Bem-vindo à Sala {room.room_id + 1}, Jogador {player_id+1}!"}) + "\n").encode())
         conn.sendall((json.dumps({"type": "player_id", "id": player_id}) + "\n").encode())
         
-        # Recebe o tabuleiro do cliente
+        # recebe o tabuleiro do cliente
         data = conn.recv(1024)
-        if data:
-            message = data.decode().strip()
-            if message:
-                board_msg = json.loads(message)
-                if board_msg["type"] == "board":
-                    room.boards[player_id] = board_msg["board"]
+        if not data:
+            raise ConnectionError("Cliente desconectou antes de enviar o tabuleiro")
+            
+        message = data.decode().strip()
+        if message:
+            board_msg = json.loads(message)
+            if board_msg["type"] == "board":
+                room.boards[player_id] = board_msg["board"]
         
-        # Espera ambos jogadores da sala conectarem e enviarem tabuleiros
+        # espera ambos jogadores da sala conectarem e enviarem tabuleiros
         while not room.is_full() or len(room.boards) < 2:
+            if not room.active_players[player_id]:
+                return  # jogador desconectou durante espera
             pass
         
         if not room.game_started:
@@ -64,13 +82,18 @@ def handle_client(conn, addr, room, player_id):
                 c.sendall((json.dumps({"type": "game_start"}) + "\n").encode())
                 c.sendall((json.dumps({"type": "info", "message": "Ambos conectados! O jogo começou."}) + "\n").encode())
         
-        # Loop principal do jogo
+        # loop principal do jogo
         while True:
+            # verifica se o oponente ainda está conectado
+            other_id = 1 - player_id
+            if not room.active_players[other_id]:
+                break
+                
             if room.turn == player_id:
                 conn.sendall((json.dumps({"type": "your_turn"}) + "\n").encode())
                 data = conn.recv(1024)
                 if not data:
-                    break
+                    raise ConnectionError("Cliente desconectou durante o jogo")
                 
                 message = data.decode().strip()
                 if not message:
@@ -81,16 +104,16 @@ def handle_client(conn, addr, room, player_id):
                     target_id = 1 - player_id
                     x, y = move["x"], move["y"]
                     
-                    # Verifica o ataque
+                    # verifica o ataque
                     hit = room.boards[target_id][x][y] == "N"
                     
-                    # Atualiza o tabuleiro
+                    # atualiza o tabuleiro
                     if hit:
                         room.boards[target_id][x][y] = "X"
                     else:
                         room.boards[target_id][x][y] = "O"
                     
-                    # Envia resultado do ataque para quem atacou
+                    # envia resultado do ataque para quem atacou
                     conn.sendall((json.dumps({
                         "type": "attack_result",
                         "x": x,
@@ -98,7 +121,7 @@ def handle_client(conn, addr, room, player_id):
                         "hit": hit
                     }) + "\n").encode())
                     
-                    # Notifica o outro jogador sobre o ataque sofrido
+                    # notifica o outro jogador sobre o ataque sofrido
                     other_conn = room.clients[target_id]
                     other_conn.sendall((json.dumps({
                         "type": "enemy_attack",
@@ -107,11 +130,10 @@ def handle_client(conn, addr, room, player_id):
                         "hit": hit
                     }) + "\n").encode())
                     
-                    # Verifica se o jogo acabou (todos navios do alvo destruídos)
+                    # verifica se o jogo acabou
                     target_ships = sum(row.count("N") for row in room.boards[target_id])
                     
                     if target_ships == 0:
-                        # Jogo acabou - jogador atual venceu
                         for i, c in enumerate(room.clients):
                             c.sendall((json.dumps({
                                 "type": "game_over",
@@ -119,44 +141,49 @@ def handle_client(conn, addr, room, player_id):
                             }) + "\n").encode())
                         break
                     
-                    # Alterna o turno
+                    # alterna o turno
                     room.turn = target_id
                     
-                    # Notifica próximo jogador que é a vez dele
                     room.clients[target_id].sendall((json.dumps({"type": "your_turn"}) + "\n").encode())
                     conn.sendall((json.dumps({"type": "wait"}) + "\n").encode())
             else:
-                # Aguarda vez
                 import time
                 time.sleep(0.1)
     
+    except (ConnectionError, ConnectionResetError, BrokenPipeError) as e:
+        print(f"Jogador {player_id + 1} da Sala {room.room_id + 1} desconectou: {e}")
+        room.disconnect_player(player_id)
     except Exception as e:
         print(f"Erro no cliente {player_id} da sala {room.room_id}: {e}")
+        room.disconnect_player(player_id)
     finally:
-        conn.close()
+        try:
+            conn.close()
+        except:
+            pass
+        print(f"Conexão com Jogador {player_id + 1} da Sala {room.room_id + 1} encerrada")
 
 def main():
-    print(f"🎮 Servidor de Batalha Naval rodando em {HOST}:{PORT}")
-    print("📌 Aguardando conexões... (Salas criadas automaticamente para cada 2 jogadores)")
+    print(f"Servidor de Batalha Naval rodando em {HOST}:{PORT}")
+    print("Aguardando conexões... (Salas criadas automaticamente para cada 2 jogadores)")
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # permite reusar a porta
         s.bind((HOST, PORT))
         s.listen()
         
         while True:
             conn, addr = s.accept()
-            print(f"✅ Nova conexão de {addr}")
+            print(f"Nova conexão de {addr}")
             
-            # Encontra ou cria uma sala disponível
             room = get_available_room()
             player_id = room.add_client(conn)
             
-            print(f"   → Jogador {player_id + 1} adicionado à Sala {room.room_id + 1}")
+            print(f" → Jogador {player_id + 1} adicionado à Sala {room.room_id + 1}")
             
             if room.is_full():
-                print(f"🎯 Sala {room.room_id + 1} completa! Jogo pode começar.")
+                print(f"Sala {room.room_id + 1} completa! Jogo pode começar.")
             
-            # Cria thread para lidar com o cliente
             threading.Thread(target=handle_client, args=(conn, addr, room, player_id), daemon=True).start()
 
 if __name__ == "__main__":
