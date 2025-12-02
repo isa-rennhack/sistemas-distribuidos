@@ -2,7 +2,21 @@ import socket
 import threading
 import json
 
-HOST = '127.0.0.1'
+import socket as sock_module
+
+def get_local_ip():
+    """Obtém o IP real da máquina na rede local"""
+    try:
+        # Cria socket temporário para descobrir IP local
+        s = sock_module.socket(sock_module.AF_INET, sock_module.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))  # Conecta ao DNS do Google (não envia dados)
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except:
+        return '0.0.0.0'  # Aceita conexões de qualquer interface
+
+HOST = get_local_ip()
 PORT = 65432
 
 rooms = []
@@ -164,12 +178,18 @@ def handle_client(conn, addr, room, player_id):
         print(f"Conexão com Jogador {player_id + 1} da Sala {room.room_id + 1} encerrada")
 
 def main():
-    print(f"Servidor de Batalha Naval rodando em {HOST}:{PORT}")
-    print("Aguardando conexões... (Salas criadas automaticamente para cada 2 jogadores)")
+    print("="*60)
+    print("🎮 SERVIDOR DE BATALHA NAVAL")
+    print("="*60)
+    print(f"\n📡 Servidor rodando em: {HOST}:{PORT}")
+    print(f"\n💡 Para conectar de outra máquina, use este IP: {HOST}")
+    print(f"   Execute no cliente: python3 client_pygame.py {HOST}")
+    print("\n📌 Aguardando conexões...")
+    print("   (Salas criadas automaticamente para cada 2 jogadores)\n")
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # permite reusar a porta
-        s.bind((HOST, PORT))
+        s.bind(('0.0.0.0', PORT))  # Aceita conexões de qualquer interface de rede
         s.listen()
         
         while True:

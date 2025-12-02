@@ -37,26 +37,59 @@ python3 client_pygame.py
 
 ## 🌐 Configuração de Rede
 
-### Mesma Máquina (Localhost)
-**Padrão atual** - não precisa mudar nada!
-- Servidor e clientes no mesmo computador
-- `HOST = '127.0.0.1'`
+### ⚡ Novo! Conexão Automática em Rede
 
-### Rede Local (mesma Wi-Fi/LAN)
+O jogo agora **detecta automaticamente o IP real da máquina** e permite conexões de outras máquinas!
 
-**No servidor (`server.py`):**
-```python
-HOST = '0.0.0.0'  # Escuta em todas as interfaces
+### 📍 Descobrir o IP do Servidor
+
+Na máquina que vai hospedar o servidor:
+
+```bash
+python3 get_ip.py
 ```
 
-**No cliente (`client_pygame.py`):**
-```python
-HOST = '192.168.1.XXX'  # IP local do servidor
+Isso mostrará seu IP na rede local (ex: `192.168.1.100`)
+
+### 🎮 Jogar em Máquinas Diferentes
+
+**1. Iniciar o servidor:**
+```bash
+python3 server.py
+```
+O servidor mostrará automaticamente o IP para conexão.
+
+**2. Conectar clientes de outras máquinas:**
+
+**Opção A - Passar IP como argumento:**
+```bash
+python3 client_pygame.py 192.168.1.100
 ```
 
-Para descobrir o IP do servidor:
-- **macOS/Linux**: `ifconfig | grep "inet "`
-- **Windows**: `ipconfig`
+**Opção B - Digitar quando solicitado:**
+```bash
+python3 client_pygame.py
+# Digite o IP do servidor quando solicitado
+```
+
+### 🏠 Testar na Mesma Máquina
+
+Pressione Enter quando o cliente pedir o IP (usará localhost automaticamente).
+
+### 🔥 Configurar Firewall
+
+**macOS:**
+```bash
+sudo /usr/libexec/ApplicationFirewall/socketfilterfw --add /usr/bin/python3
+```
+
+**Linux:**
+```bash
+sudo ufw allow 65432/tcp
+```
+
+**Windows:**
+- Painel de Controle → Firewall → Permitir porta 65432/TCP
 
 ### Internet (redes diferentes)
 
@@ -104,6 +137,21 @@ ngrok tcp 65432
 ```bash
 pip install pygame
 ```
+
+## 🚀 Início Rápido (Script Auxiliar)
+
+Para facilitar, use o script de inicialização:
+
+```bash
+./start.sh
+```
+
+Escolha uma opção:
+1. Iniciar servidor
+2. Iniciar cliente (mesma máquina)
+3. Iniciar cliente (rede - digite o IP)
+4. Ver IP da máquina
+5. Sair
 
 ## 🐛 Solução de Problemas
 

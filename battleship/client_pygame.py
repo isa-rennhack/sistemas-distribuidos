@@ -4,8 +4,17 @@ import threading
 import pygame
 import sys
 
-HOST = '127.0.0.1'
+# Aceita IP do servidor como argumento
+if len(sys.argv) > 1:
+    HOST = sys.argv[1]
+else:
+    HOST = input("Digite o IP do servidor (ou Enter para localhost): ").strip()
+    if not HOST:
+        HOST = '127.0.0.1'
+
 PORT = 65432
+
+print(f"\n🎮 Conectando ao servidor {HOST}:{PORT}...\n")
 
 # Configurações
 WINDOW_WIDTH = 1300
