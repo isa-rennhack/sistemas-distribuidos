@@ -16,8 +16,7 @@ echo ""
 echo "  1) Iniciar SERVIDOR"
 echo "  2) Iniciar CLIENTE (local)"
 echo "  3) Iniciar CLIENTE (rede)"
-echo "  4) Ver IP da máquina"
-echo "  5) Sair"
+echo "  4) Sair"
 echo ""
 read -p "Opção: " choice
 
@@ -41,11 +40,6 @@ case $choice in
         python3 client_pygame.py $server_ip
         ;;
     4)
-        echo ""
-        echo "📍 IP da máquina: $IP"
-        echo ""
-        ;;
-    5)
         echo "👋 Até logo!"
         exit 0
         ;;

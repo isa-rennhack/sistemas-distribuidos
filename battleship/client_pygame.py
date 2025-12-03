@@ -235,33 +235,31 @@ class BattleshipGame:
         self.draw_board(self.my_board, self.my_board_x, self.my_board_y, clickable=not self.game_started)
         self.draw_board(self.enemy_board, self.enemy_board_x, self.enemy_board_y, clickable=self.my_turn, is_enemy=True)
         
-        if self.connect_button_enabled and not self.connected:
-            button_color = GREEN
-            text_color = WHITE
-        else:
-            button_color = GRAY
-            text_color = LIGHT_GRAY
-        
-        pygame.draw.rect(self.screen, button_color, self.connect_button_rect)
-        
-        button_text = self.small_font.render("CONECTAR", True, text_color)
-        self.screen.blit(button_text, button_text.get_rect(center=self.connect_button_rect.center))
-        
         # botões após game over
         if self.game_over:
             # novo jogo
-            self.new_game_button_rect = pygame.Rect(WINDOW_WIDTH // 2 - 220, 680, 200, 50)
+            self.new_game_button_rect = pygame.Rect(WINDOW_WIDTH // 2 - 220, 710, 200, 50)
             pygame.draw.rect(self.screen, GREEN, self.new_game_button_rect)
-            pygame.draw.rect(self.screen, BLACK, self.new_game_button_rect, 2)
             new_game_text = self.small_font.render("NOVO JOGO", True, WHITE)
             self.screen.blit(new_game_text, new_game_text.get_rect(center=self.new_game_button_rect.center))
             
             # sair
-            self.exit_button_rect = pygame.Rect(WINDOW_WIDTH // 2 + 20, 680, 200, 50)
+            self.exit_button_rect = pygame.Rect(WINDOW_WIDTH // 2 + 20, 710, 200, 50)
             pygame.draw.rect(self.screen, RED, self.exit_button_rect)
-            pygame.draw.rect(self.screen, BLACK, self.exit_button_rect, 2)
             exit_text = self.small_font.render("SAIR", True, WHITE)
             self.screen.blit(exit_text, exit_text.get_rect(center=self.exit_button_rect.center))
+        else:
+            # só mostra botão conectar se o jogo não acabou
+            if self.connect_button_enabled and not self.connected:
+                button_color = GREEN
+                text_color = WHITE
+            else:
+                button_color = GRAY
+                text_color = LIGHT_GRAY
+            
+            pygame.draw.rect(self.screen, button_color, self.connect_button_rect)
+            button_text = self.small_font.render("CONECTAR", True, text_color)
+            self.screen.blit(button_text, button_text.get_rect(center=self.connect_button_rect.center))
         
         pygame.display.flip()
 
